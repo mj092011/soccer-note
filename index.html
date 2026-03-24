@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+   <title>PraiseLog - 褒めて伸ばすサッカーノート</title>
+   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+   <style>
+       :root {
+           /* 画像に基づいた色定義 */
+           --gradient-start: #8E44AD; /* 紫 (Seasonヘッダー) */
+           --gradient-end: #3498DB;   /* 水色 (Seasonヘッダー) */
+           --bg-body: #FDFDFD;      /* ほぼ白 */
+           --bg-card: #FFFFFF;      /* 純白 */
+
+           --text-main: #333333;    /* 柔らかい黒 */
+           --text-sub: #7F8C8D;     /* 薄いグレー */
+
+           --color-primary: #8E44AD; /* メインの紫 */
+           --color-accent: #3498DB;   /* アクセントの水色 */
+
+           /* フォント */
+           --font-family: 'Hiragino Kaku Gothic ProN', 'HiraKakuProN-W3', Meiryo, sans-serif;
+           --radius-main: 25px;     /* 大きめの角丸 (画像参考) */
+       }
+
+       body {
+           font-family: var(--font-family);
+           background-color: var(--bg-body);
+           color: var(--text-main);
+           margin: 0;
+           padding-bottom: 100px; /* ナビ用の余白 */
+           -webkit-font-smoothing: antialiased; /* 文字をなめらかに */
+       }
+
+       /* ヘッダー: 紫から水色のグラデーション */
+       header {
+           background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
+           color: white;
+           padding: 40px 20px 30px 20px;
+           text-align: left; /* 画像のように左寄せ */
+           border-bottom-left-radius: var(--radius-main);
+           border-bottom-right-radius: var(--radius-main);
+           box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+           margin-bottom: 25px;
+       }
+
+       h1.app-title {
+           margin: 0;
+           font-size: 2.2rem; /* 大きめに */
+           font-weight: bold;
+       }
+
+       .container {
+           max-width: 800px;
+           margin: 0 auto;
+           padding: 0 20px;
+       }
+
+       /* カードデザイン: より柔らかく、白ベース */
+       .card {
+           background: var(--bg-card);
+           border-radius: var(--radius-main);
+           padding: 25px;
+           margin-bottom: 20px;
+           box-shadow: 0 8px 20px rgba(0,0,0,0.03); /* 柔らかい影 */
+           border: 1px solid rgba(0,0,0,0.01); /* かすかに枠線を */
+           transition: transform 0.2s, box-shadow 0.2s;
+       }
+
+       .card:active {
+           transform: scale(0.98); /* タップした時のフィードバック */
+           box-shadow: 0 4px 10px rgba(0,0,0,0.02);
+       }
+
+       /* 選手名など */
+       .player-name {
+           font-size: 1.4rem;
+           font-weight: bold;
+           color: var(--text-main);
+       }
+
+       .player-info {
+           font-size: 1.0rem;
+           color: var(--text-sub);
+           margin-top: 5px;
+       }
+
+       /* タグ: 水色ベース */
+       .badge {
+           display: inline-block;
+           background: #EBF5FB; /* 薄い水色 */
+           color: var(--color-accent);
+           padding: 8px 16px;
+           border-radius: 30px;
+           font-size: 0.85rem;
+           margin: 5px 3px;
+           font-weight: bold;
+       }
+
+       /* 検索バー */
+       .search-box {
+           background: white;
+           border-radius: 30px;
+           padding: 10px 20px;
+           display: flex;
+           align-items: center;
+           box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+           margin-bottom: 20px;
+           border: 1px solid #F0F0F0;
+       }
+       .search-box i { color: var(--text-sub); margin-right: 15px; font-size: 1.1rem; }
+
+       /* フォーム入力 */
+       input[type="text"], input[type="date"], select, textarea {
+           width: 100%;
+           padding: 18px;
+           margin: 10px 0 25px 0;
+           border: 1px solid #EAEAEA;
+           border-radius: 15px;
+           box-sizing: border-box;
+           font-size: 1rem;
+           background: #FDFDFD;
+           color: var(--text-main);
+       }
+       input:focus, select:focus, textarea:focus {
+           outline: none;
+           border-color: var(--color-accent);
+           box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.1);
+       }
+
+       /* ボタン: グラデーション */
+       .btn {
+           background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+           color: white;
+           border: none;
+           padding: 18px;
+           border-radius: 35px;
+           cursor: pointer;
+           font-weight: bold;
+           font-size: 1.2rem;
+           width: 100%;
+           box-shadow: 0 6px 15px rgba(142, 68, 173, 0.2);
+           transition: all 0.2s;
+           display: flex;
+           justify-content: center;
+           align-items: center;
+           gap: 10px;
+       }
+       .btn:active {
+           transform: translateY(2px);
+           box-shadow: 0 3px 8px rgba(142, 68, 173, 0.2);
+       }
+       .btn-sub {
+           background: white;
+           color: var(--color-primary);
+           border: 2px solid var(--color-primary);
+           box-shadow: none;
+       }
+
+       /* ナビゲーション: 画像のフッターを参考 */
+       nav {
+           position: fixed;
+           bottom: 0;
+           width: 100%;
+           background: rgba(255, 255, 255, 0.98);
+           -webkit-backdrop-filter: blur(10px);
+           backdrop-filter: blur(10px);
+           display: flex;
+           justify-content: space-around;
+           padding: 15px 0;
+           box-shadow: 0 -5px 20px rgba(0,0,0,0.03);
+           border-top-left-radius: var(--radius-main);
+           border-top-right-radius: var(--radius-main);
+           z-index: 1000;
+       }
+
+       nav button {
+           background: none;
+           border: none;
+           color: var(--text-sub);
+           font-size: 0.95rem;
+           cursor: pointer;
+           display: flex;
+           flex-direction: column;
+           align-items: center;
+           gap: 8px;
+       }
+       nav button i { font-size: 1.6rem; }
+       nav button.active {
+           color: var(--color-primary);
+           font-weight: bold;
+       }
+
+       .hidden { display: none; }
+
+       /* 武器まとめ画面 */
+       .weapon-title {
+           color: var(--color-accent);
+           border-bottom: 3px solid #EBF5FB;
+           padding-bottom: 15px;
+           margin-bottom: 20px;
+       }
+   </style>
+</head>
+<body>
+
+<header>
+   <h1 class="app-title">PraiseLog</h1>
+   <div style="font-size:1.1rem; opacity:0.8; margin-top:5px;">⚽ 褒めて伸ばすサッカーノート</div>
+</header>
+
+<div class="container">
+   <section id="view-list">
+       <div class="search-box">
+           <i class="fas fa-search"></i>
+           <input type="text" id="search-input" placeholder="選手名や武器で検索..." oninput="renderPlayerList()" style="margin:0; padding:10px; border:none; background:none; font-size:1.1rem;">
+       </div>
+       <div id="player-container"></div>
+       <button class="btn" onclick="showAddPlayerForm()">
+           <i class="fas fa-user-plus"></i>
+           新しい選手を追加
+       </button>
+   </section>
+
+   <section id="view-detail" class="hidden">
+       <button onclick="showView('list')" style="background:none; border:none; color:var(--color-primary); cursor:pointer; padding: 15px 0; font-size:1.2rem; display:flex; align-items:center; gap:8px;">
+           <i class="fas fa-chevron-left"></i> 選手一覧へ
+       </button>
+       <div id="detail-header" class="card"></div>
+
+       <div class="card" style="border-top: 6px solid var(--color-accent);">
+           <h3 style="margin-top:0; color:var(--color-accent);"><i class="fas fa-magic"></i> 今日のポジティブ記録</h3>
+           <label>日付</label>
+           <input type="date" id="log-date">
+           <label>区分</label>
+           <select id="log-type">
+               <option value="練習">練習</option>
+               <option value="試合">試合</option>
+           </select>
+           <label>今日良かったプレー（具体的に！）</label>
+           <textarea id="log-good" rows="5" placeholder="例：右サイドでの縦突破からクロス"></textarea>
+           <label>次に試すこと（ワクワクする目標）</label>
+           <input type="text" id="log-next" placeholder="例：カットインからのシュートも狙ってみよう">
+           <label>選手への声かけ例</label>
+           <input type="text" id="log-voice" placeholder="例：あの突破、ベンチも沸いたぞ！">
+           <button class="btn" onclick="saveLog()" style="background:linear-gradient(135deg, var(--color-accent) 0%, #85C1E9 100%); box-shadow: 0 6px 15px rgba(52, 152, 219, 0.2);">
+               <i class="fas fa-medal"></i>
+               記録を保存する ✨
+           </button>
+       </div>
+
+       <h3><i class="fas fa-history"></i> 過去の成長の記録</h3>
+       <div id="log-history"></div>
+   </section>
+
+   <section id="view-weapons" class="hidden">
+       <h2><i class="fas fa-briefcase" style="color:var(--color-accent);"></i> みんなの武器図鑑</h2>
+       <div id="weapons-container"></div>
+   </section>
+
+   <section id="view-add-player" class="hidden">
+       <h3>選手登録</h3>
+       <input type="text" id="new-name" placeholder="選手名">
+       <input type="text" id="new-grade" placeholder="学年 (例: 5年)">
+       <input type="text" id="new-pos" placeholder="ポジション">
+       <input type="text" id="new-tags" placeholder="武器タグ (カンマ区切り)">
+       <button class="btn" onclick="addPlayer()">登録する</button>
+       <button class="btn btn-sub" onclick="showView('list')" style="margin-top:15px;">キャンセル</button>
+   </section>
+</div>
+
+<nav>
+   <button onclick="showView('list')" id="nav-list" class="active">
+       <i class="fas fa-users"></i>
+       選手一覧
+   </button>
+   <button onclick="showView('weapons')" id="nav-weapons">
+       <i class="fas fa-fire"></i>
+       武器まとめ
+   </button>
+</nav>
+
+<script>
+   // データ構造 (保存キーをV3に変更)
+   let players = JSON.parse(localStorage.getItem('praiseLogDataV3')) || [];
+   let currentPlayerId = null;
+
+   // 画面切り替え
+   function showView(viewName) {
+       document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
+       document.getElementById(`view-${viewName}`).classList.remove('hidden');
+       document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+       if(viewName === 'list' || viewName === 'weapons') {
+           document.getElementById(`nav-${viewName}`).classList.add('active');
+       }
+       if(viewName === 'list') renderPlayerList();
+       if(viewName === 'weapons') renderWeapons();
+       window.scrollTo(0, 0); // 画面上部へ移動
+   }
+
+   // 選手一覧描画
+   function renderPlayerList() {
+       const container = document.getElementById('player-container');
+       const searchTerm = document.getElementById('search-input').value.toLowerCase();
+       container.innerHTML = '';
+
+       const filteredPlayers = players.filter(p => p.name.toLowerCase().includes(searchTerm) || p.tags.some(t => t.includes(searchTerm)));
+
+       if(filteredPlayers.length === 0) {
+           container.innerHTML = '<p style="text-align:center; color:var(--text-sub); padding:30px; font-size:1.1rem;">選手を登録しましょう！</p>';
+           return;
+       }
+
+       filteredPlayers.forEach(p => {
+           const card = document.createElement('div');
+           card.className = 'card';
+           card.onclick = () => openDetail(p.id);
+           card.innerHTML = `
+               <div style="display:flex; justify-content:space-between; align-items:start;">
+                   <div>
+                       <div class="player-name">${p.name} <span style="font-size:1.0rem; font-weight:normal; color:var(--text-sub);">(${p.grade})</span></div>
+                       <div class="player-info">${p.pos}</div>
+                   </div>
+                   <small style="color:var(--text-sub); font-size:0.85rem;">更新: ${p.lastUpdate || '未更新'}</small>
+               </div>
+               <div style="margin-top:15px;">${p.tags.map(t => `<span class="badge">${t}</span>`).join('')}</div>
+           `;
+           container.appendChild(card);
+       });
+   }
+
+   // 選手追加
+   function showAddPlayerForm() { showView('add-player'); }
+   function addPlayer() {
+       const name = document.getElementById('new-name').value;
+       if(!name) return;
+       const newPlayer = {
+           id: Date.now(),
+           name,
+           grade: document.getElementById('new-grade').value,
+           pos: document.getElementById('new-pos').value,
+           tags: document.getElementById('new-tags').value.split(',').filter(t => t.trim() !== '').map(t => t.trim()),
+           logs: []
+       };
+       players.push(newPlayer);
+       saveData();
+       showView('list');
+       // 入力欄クリア
+       ['new-name', 'new-grade', 'new-pos', 'new-tags'].forEach(id => document.getElementById(id).value = '');
+   }
+
+   // 詳細画面
+   function openDetail(id) {
+       currentPlayerId = id;
+       const p = players.find(x => x.id === id);
+       document.getElementById('detail-header').innerHTML = `
+           <div class="player-name">${p.name} <span style="font-size:1.0rem; font-weight:normal; color:var(--text-sub);">(${p.grade})</span></div>
+           <div class="player-info">${p.pos}</div>
+           <div style="margin-top:15px;">${p.tags.map(t => `<span class="badge" style="background:var(--color-primary); color:white;">${t}</span>`).join('')}</div>
+       `;
+       document.getElementById('log-date').value = new Date().toISOString().split('T')[0];
+       renderLogs(p);
+       showView('detail');
+   }
+
+   // ログ保存
+   function saveLog() {
+       const p = players.find(x => x.id === currentPlayerId);
+       const log = {
+           id: Date.now(),
+           date: document.getElementById('log-date').value,
+           type: document.getElementById('log-type').value,
+           good: document.getElementById('log-good').value,
+           next: document.getElementById('log-next').value,
+           voice: document.getElementById('log-voice').value
+       };
+       if(!log.good) return; // 良かったプレーは必須
+
+       p.logs.unshift(log); // 最新を上に
+       p.lastUpdate = log.date;
+       saveData();
+       openDetail(currentPlayerId);
+       // 入力欄クリア
+       ['log-good', 'log-next', 'log-voice'].forEach(id => document.getElementById(id).value = '');
+   }
+
+   function renderLogs(p) {
+       const hist = document.getElementById('log-history');
+       if(p.logs.length === 0) {
+           hist.innerHTML = '<p style="text-align:center; color:var(--text-sub); padding:20px; font-size:1.1rem;">成長の記録がここに並びます</p>';
+           return;
+       }
+       hist.innerHTML = p.logs.map(l => `
+           <div class="card" style="border-left: 6px solid var(--color-primary); padding:20px;">
+               <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+                   <div style="font-weight:bold; font-size:1.1rem; color:var(--text-main);">${l.date} <span style="font-weight:normal; color:var(--text-sub); font-size:0.9rem;">[${l.type}]</span></div>
+                   <i class="fas fa-star" style="color:var(--color-accent); font-size:1.2rem;"></i>
+               </div>
+               <div style="color:var(--color-primary); font-weight:bold; font-size:1.1rem; line-height:1.5;">👍 ${l.good}</div>
+               ${l.next ? `<div style="font-size:1.0rem; margin-top:12px; color:var(--text-main);">🚀 次: ${l.next}</div>` : ''}
+               ${l.voice ? `<div style="font-size:0.95rem; background:#F8FAFB; padding:15px; border-radius:12px; margin-top:15px; color:var(--text-sub); border: 1px solid #F0F0F0;">💬 声かけ例: ${l.voice}</div>` : ''}
+           </div>
+       `).join('');
+   }
+
+   // 武器まとめ画面描画
+   function renderWeapons() {
+       const container = document.getElementById('weapons-container');
+       container.innerHTML = '';
+       players.forEach(p => {
+           if(p.logs.length === 0 && p.tags.length === 0) return;
+           const div = document.createElement('div');
+           div.className = 'card';
+           div.style = 'border-top: 6px solid var(--color-accent);';
+           div.innerHTML = `
+               <h3 class="weapon-title">${p.name} の武器庫</h3>
+               <div style="margin-bottom:20px;">${p.tags.map(t => `<span class="badge" style="background:linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%); color:white;">${t}</span>`).join('')}</div>
+               ${p.logs[0] ? `
+                   <p style="color:var(--color-primary); font-size:1.1rem; font-weight:bold;"><strong>最近の良かったプレー:</strong><br>${p.logs[0].good}</p>
+                   <p style="font-size:1.0rem;"><strong>次へのステップ:</strong><br>🚀 ${p.logs[0].next || '未定'}</p>
+               ` : '<p style="color:var(--text-sub); font-size:1.0rem;">記録待ちです！</p>'}
+           `;
+           container.appendChild(div);
+       });
+   }
+
+   function saveData() {
+       localStorage.setItem('praiseLogDataV3', JSON.stringify(players));
+   }
+
+   // 初期化
+   renderPlayerList();
+</script>
+</body>
+</html>
