@@ -3,184 +3,318 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PraiseLog Visual - 感覚で振り返る</title>
+    <title>PraiseLog Tactics Engine</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
-            --gradient-start: #8E44AD; --gradient-end: #3498DB;
-            --bg-body: #FDFDFD; --color-primary: #8E44AD; --color-accent: #3498DB;
-            --radius-main: 25px;
+            --gradient-start: #2C3E50; --gradient-end: #4CA1AF; /* シリアスな戦術カラー */
+            --bg-body: #F4F7F6; --color-primary: #2C3E50; --color-accent: #E74C3C;
+            --pitch-green: #5AB574; --radius-main: 20px;
         }
-        body { font-family: sans-serif; background-color: var(--bg-body); margin: 0; padding-bottom: 100px; touch-action: manipulation; }
-        header { background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%); color: white; padding: 30px 20px; border-bottom-radius: var(--radius-main); }
-        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
-        .card { background: white; border-radius: var(--radius-main); padding: 20px; margin-bottom: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        body { font-family: sans-serif; background-color: var(--bg-body); margin: 0; padding-bottom: 100px; touch-action: none; overflow: hidden; } /* タッチ操作専用 */
+        header { background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%); color: white; padding: 15px 20px; text-align: center; }
+        h1 { margin: 0; font-size: 1.2rem; }
         
-        /* 戦術ボード（ピッチ） */
-        .pitch {
-            width: 100%;
-            aspect-ratio: 3 / 2;
-            background-color: #5AB574;
-            border: 2px solid white;
-            border-radius: 15px;
-            position: relative;
-            overflow: hidden;
-            margin: 10px 0;
-            background-image: 
-                linear-gradient(to right, rgba(255,255,255,0.2) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(255,255,255,0.2) 1px, transparent 1px);
-            background-size: 20% 100%;
+        /* タクティカル・コンソール（ボード部分） */
+        #tactics-console { width: 100vw; height: calc(100vh - 120px); position: relative; overflow: hidden; background: #333; }
+        
+        /* ピッチ（ズーム対応） */
+        #pitch-container {
+            width: 100%; height: 100%; position: absolute; background-color: var(--pitch-green);
+            background-image: repeating-linear-gradient(90deg, transparent, transparent 19%, rgba(255,255,255,0.05) 20%);
+            transition: all 0.5s ease-out; /* ズームアニメーション */
+            transform-origin: center center;
         }
-        .pitch::after { /* センターライン */
-            content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: white;
-        }
+        
+        /* ピッチのライン描画 (SVGで精密に) */
+        #pitch-lines { position: absolute; width: 100%; height: 100%; top: 0; left: 0; }
+
+        /* 駒（選手・ボール） */
         .piece {
-            width: 30px; height: 30px; border-radius: 50%; position: absolute; 
-            display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; font-weight: bold;
-            cursor: grab; z-index: 10; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            width: 26px; height: 26px; border-radius: 50%; position: absolute; 
+            display: flex; align-items: center; justify-content: center; color: white; font-size: 9px; font-weight: bold;
+            cursor: grab; z-index: 10; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            touch-action: none; transform: translate(-50%, -50%);
         }
-        .piece.team-a { background: #3498DB; } /* 自チーム */
-        .piece.team-b { background: #E74C3C; } /* 相手 */
+        .piece.team-a { background: #3498DB; } /* 自チーム（青） */
+        .piece.team-b { background: #E74C3C; } /* 相手（赤） */
+        .piece.ball { background: white; border-color: #333; width: 18px; height: 18px; z-index: 20; } /* ボール */
+        
+        /* 体の向き（矢印） */
+        .direction-arrow {
+            position: absolute; width: 0; height: 0; 
+            border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 10px solid gold;
+            top: -12px; left: 50%; transform: translateX(-50%);
+            opacity: 0.8; pointer-events: none;
+        }
 
-        .video-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; margin-top: 10px; border-radius: 10px; }
-        .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        /* コントロールパネル */
+        #control-panel {
+            position: absolute; bottom: 70px; left: 0; width: 100%; background: rgba(255,255,255,0.95);
+            padding: 10px; box-sizing: border-box; display: flex; flex-wrap: wrap; gap: 5px; justify-content: center;
+            border-top-left-radius: 15px; border-top-right-radius: 15px; box-shadow: 0 -5px 10px rgba(0,0,0,0.1); z-index: 30;
+        }
+        .ctrl-btn { background: white; border: 1px solid #ccc; padding: 8px 12px; border-radius: 20px; font-size: 0.8rem; cursor: pointer; }
+        .ctrl-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
+        .group-label { font-size: 0.7rem; color: #777; width: 100%; text-align: center; margin-bottom: 2px; }
 
-        textarea, input { width: 100%; padding: 15px; border-radius: 15px; border: 1px solid #eee; margin-bottom: 15px; box-sizing: border-box; }
-        .btn { background: var(--color-primary); color: white; border: none; padding: 15px; border-radius: 30px; width: 100%; font-weight: bold; }
-        .hidden { display: none; }
-        nav { position: fixed; bottom: 0; width: 100%; background: white; display: flex; justify-content: space-around; padding: 15px 0; box-shadow: 0 -5px 10px rgba(0,0,0,0.05); }
+        /* 選手一覧などのビュー（今回はボード特化のため非表示） */
+        .view-section { display: none; }
     </style>
 </head>
 <body>
 
-<header><h1 style="margin:0; font-size:1.5rem;">PraiseLog Visual</h1></header>
+<header>
+    <h1>PraiseLogTactics Engine</h1>
+</header>
 
-<div class="container">
-    <section id="view-list">
-        <div id="player-container"></div>
-        <button class="btn" onclick="showView('add-player')">+ 選手追加</button>
-    </section>
-
-    <section id="view-detail" class="hidden">
-        <button onclick="showView('list')" style="border:none; background:none; color:var(--color-primary); margin-bottom:10px;">← 一覧へ</button>
-        <div id="detail-header" class="card"></div>
-
-        <div class="card">
-            <h3 style="margin:0 0 10px 0;">🎬 動画URL (YouTube)</h3>
-            <input type="text" id="log-video" placeholder="https://www.youtube.com/watch?v=...">
-            
-            <h3 style="margin:20px 0 10px 0;">📍 ボードで状況をメモ</h3>
-            <p style="font-size:0.8rem; color:#888;">駒を指で動かして配置を確認しよう</p>
-            <div class="pitch" id="tactical-pitch">
-                <div class="piece team-a" style="top:40%; left:20%;" draggable="true">自分</div>
-                <div class="piece team-b" style="top:45%; left:60%;" draggable="true">相手</div>
-                <div class="piece team-a" style="top:60%; left:30%;" draggable="true">味方</div>
-            </div>
-
-            <h3 style="margin:20px 0 10px 0;">📝 感覚メモ</h3>
-            <textarea id="log-good" rows="3" placeholder="「この位置からこう動いた時、最高の感覚だった！」など"></textarea>
-            <button class="btn" onclick="saveLog()">ビジュアル記録を保存 ✨</button>
+<div id="tactics-console">
+    <div id="pitch-container">
+        <svg id="pitch-lines" viewBox="0 0 100 150" preserveAspectRatio="none">
+            <rect x="5" y="5" width="90" height="140" fill="none" stroke="white" stroke-width="0.5"/>
+            <line x1="5" y1="75" x2="95" y2="75" stroke="white" stroke-width="0.5"/>
+            <circle cx="50" cy="75" r="10" fill="none" stroke="white" stroke-width="0.5"/>
+            <rect x="25" y="5" width="50" height="20" fill="none" stroke="white" stroke-width="0.5"/>
+            <rect x="25" y="125" width="50" height="20" fill="none" stroke="white" stroke-width="0.5"/>
+        </svg>
+        
         </div>
-
-        <div id="log-history"></div>
-    </section>
-
-    <section id="view-add-player" class="hidden">
-        <div class="card">
-            <h3>選手登録</h3>
-            <input type="text" id="new-name" placeholder="選手名">
-            <button class="btn" onclick="addPlayer()">登録</button>
-        </div>
-    </section>
 </div>
 
-<nav>
-    <button onclick="showView('list')"><i class="fas fa-users"></i><br>選手</button>
-    <button onclick="location.reload()"><i class="fas fa-sync"></i><br>更新</button>
+<div id="control-panel">
+    <div class="group-label">シチュエーション</div>
+    <button class="ctrl-btn active" onclick="setSituation('all', this)">全般</button>
+    <button class="ctrl-btn" onclick="setSituation('attack', this)">攻撃時/守備時</button>
+    <button class="ctrl-btn" onclick="setSituation('counter', this)">カウンター時</button>
+    
+    <div class="group-label" style="margin-top:10px;">フォーメーション (青)</div>
+    <button class="ctrl-btn" onclick="applyFormation('433')">4-3-3</button>
+    <button class="ctrl-btn" onclick="applyFormation('442')">4-4-2</button>
+    <button class="ctrl-btn" onclick="resetPieces()">リセット</button>
+</div>
+
+<nav style="position: fixed; bottom: 0; width: 100%; background: white; display: flex; justify-content: space-around; padding: 15px 0; box-shadow: 0 -5px 10px rgba(0,0,0,0.05);">
+    <button style="border:none; background:none; color:var(--color-primary); font-weight:bold;"><i class="fas fa-chalkboard-teacher"></i><br>戦術ボード</button>
 </nav>
 
 <script>
-    let players = JSON.parse(localStorage.getItem('praiseLogVisualV1')) || [];
-    let currentPlayerId = null;
+    const pitch = document.getElementById('pitch-container');
+    const pieces = []; // すべての駒のデータを保持
 
-    // 駒のドラッグ機能（スマホ・iPad対応）
-    document.addEventListener('touchstart', dragStart, false);
-    document.addEventListener('touchend', dragEnd, false);
+    // --- 1. 駒（選手・ボール）の初期化 ---
+    function initPieces() {
+        // 自チーム (青) 11人
+        for (let i = 1; i <= 11; i++) createPiece('team-a', i);
+        // 相手チーム (赤) 11人
+        for (let i = 1; i <= 11; i++) createPiece('team-b', i);
+        // ボール
+        createPiece('ball', '⚽');
+        
+        resetPieces(); // 初期位置へ
+    }
+
+    function createPiece(type, label) {
+        const el = document.createElement('div');
+        el.className = `piece ${type}`;
+        if (type !== 'ball') {
+            el.innerHTML = `<div class="direction-arrow"></div>${label}`;
+            el.dataset.angle = 0; // 体の向き（角度）
+        }
+        
+        pitch.appendChild(el);
+        
+        const pieceData = {
+            el: el, type: type, label: label,
+            x: 0, y: 0, // パーセント位置
+            initX: 0, initY: 0 // ドラッグ開始時の物理位置
+        };
+        pieces.push(pieceData);
+
+        // タッチイベントの登録
+        el.addEventListener('touchstart', dragStart, false);
+        if (type !== 'ball') {
+            el.addEventListener('dblclick', rotatePiece, false); // PC用：ダブルクリックで回転
+            el.addEventListener('touchstart', handlePieceTap, false); // スマホ用：タップで回転
+        }
+    }
+
+    // --- 2. ドラッグ & ドロップ & ボール連動機能 ---
     document.addEventListener('touchmove', drag, false);
+    document.addEventListener('touchend', dragEnd, false);
 
-    let activeItem = null;
-    let currentX; let currentY; let initialX; let initialY; let xOffset = 0; let yOffset = 0;
+    let activePiece = null;
+    let pitchRect;
 
     function dragStart(e) {
-        if (e.target.classList.contains('piece')) {
-            activeItem = e.target;
-            initialX = e.touches[0].clientX - (activeItem.offsetLeft);
-            initialY = e.touches[0].clientY - (activeItem.offsetTop);
-        }
-    }
-    function dragEnd() { activeItem = null; }
-    function drag(e) {
-        if (activeItem) {
-            e.preventDefault();
-            currentX = e.touches[0].clientX - initialX;
-            currentY = e.touches[0].clientY - initialY;
-            activeItem.style.left = currentX + "px";
-            activeItem.style.top = currentY + "px";
-        }
-    }
-
-    // 基本機能
-    function showView(v) {
-        document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
-        document.getElementById('view-' + v).classList.remove('hidden');
-        if(v === 'list') renderList();
-    }
-
-    function addPlayer() {
-        const p = { id: Date.now(), name: document.getElementById('new-name').value, logs: [] };
-        players.push(p); save(); showView('list');
-    }
-
-    function openDetail(id) {
-        currentPlayerId = id;
-        const p = players.find(x => x.id === id);
-        document.getElementById('detail-header').innerHTML = `<h2>${p.name}</h2>`;
-        renderLogs(p); showView('detail');
-    }
-
-    function saveLog() {
-        const p = players.find(x => x.id === currentPlayerId);
-        const videoUrl = document.getElementById('log-video').value;
-        const videoId = videoUrl.includes('v=') ? videoUrl.split('v=')[1].split('&')[0] : null;
+        activePiece = pieces.find(p => p.el === e.target || p.el === e.target.parentElement);
+        if (!activePiece) return;
         
-        const log = {
-            date: new Date().toLocaleDateString(),
-            good: document.getElementById('log-good').value,
-            videoId: videoId
+        pitchRect = pitch.getBoundingClientRect();
+        activePiece.initX = e.touches[0].clientX - activePiece.el.offsetLeft;
+        activePiece.initY = e.touches[0].clientY - activePiece.el.offsetTop;
+        activePiece.el.style.zIndex = 100; // ドラッグ中を前面に
+    }
+
+    function drag(e) {
+        if (!activePiece) return;
+        e.preventDefault();
+
+        let x = e.touches[0].clientX - activePiece.initX;
+        let y = e.touches[0].clientY - activePiece.initY;
+
+        // ピッチ内（パーセント）に変換
+        activePiece.x = (x / pitchRect.width) * 100;
+        activePiece.y = (y / pitchRect.height) * 100;
+
+        updatePieceDOM(activePiece);
+
+        // ★ ボール連動機能 ★
+        if (activePiece.type === 'ball') {
+            movePlayersWithBall(activePiece.x, activePiece.y);
+        }
+    }
+
+    function dragEnd() {
+        if (activePiece) {
+            activePiece.el.style.zIndex = activePiece.type === 'ball' ? 20 : 10;
+            saveState(); // 位置を保存
+        }
+        activePiece = null;
+    }
+
+    function updatePieceDOM(piece) {
+        piece.el.style.left = piece.x + "%";
+        piece.el.style.top = piece.y + "%";
+    }
+
+    // ★ ボール連動AI ★
+    function movePlayersWithBall(ballX, ballY) {
+        pieces.forEach(p => {
+            if (p.type === 'ball') return;
+            
+            // 簡略化：ボールからの距離に応じて、少しだけボールに近づく
+            const dx = ballX - p.x;
+            const dy = ballY - p.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            
+            if (dist < 30) { // ボールに近い選手だけ
+                const attraction = 0.05; // 引き寄せ強度（0〜1）
+                p.x += dx * attraction;
+                p.y += dy * attraction;
+                updatePieceDOM(p);
+            }
+        });
+    }
+
+    // --- 3. 体の向き（回転）機能 ---
+    let lastTapTime = 0;
+    function handlePieceTap(e) {
+        const currentTime = new Date().getTime();
+        const tapLength = currentTime - lastTapTime;
+        if (tapLength < 300 && tapLength > 0) {
+            rotatePiece(e); // ダブルタップで回転
+            e.preventDefault();
+        }
+        lastTapTime = currentTime;
+    }
+
+    function rotatePiece(e) {
+        const el = e.target.classList.contains('piece') ? e.target : e.target.parentElement;
+        if (!el.classList.contains('piece') || el.classList.contains('ball')) return;
+        
+        let angle = parseInt(el.dataset.angle) + 45;
+        if (angle >= 360) angle = 0;
+        el.dataset.angle = angle;
+        
+        // 矢印を回転
+        const arrow = el.querySelector('.direction-arrow');
+        if (arrow) arrow.style.transform = `translateX(-50%) rotate(${angle}deg)`;
+        saveState();
+    }
+
+    // --- 4. シチュエーション & ズーム機能 ---
+    function setSituation(sit, btnEl) {
+        // ボタンのスタイル切り替え
+        document.querySelectorAll('.ctrl-btn').forEach(b => b.classList.remove('active'));
+        btnEl.classList.add('active');
+        
+        // ピッチのズーム設定 (transform)
+        switch (sit) {
+            case 'all': 
+                pitch.style.transform = "scale(1.0) translate(0, 0)"; break;
+            case 'attack': // ゴール前（上側）
+                pitch.style.transform = "scale(2.2) translate(0, 30%)"; break;
+            case 'counter': // 中央エリア
+                pitch.style.transform = "scale(1.8) translate(0, 0)"; break;
+        }
+    }
+
+    // --- 5. フォーメーション & リセット ---
+    function applyFormation(form) {
+        const teamA = pieces.filter(p => p.type === 'team-a');
+        
+        const formations = {
+            '433': [
+                {x:50,y:92}, // GK
+                {x:20,y:80},{x:40,y:82},{x:60,y:82},{x:80,y:80}, // DF
+                {x:50,y:70},{x:35,y:65},{x:65,y:65}, // MF
+                {x:50,y:52},{x:25,y:55},{x:75,y:55}  // FW
+            ],
+            '442': [
+                {x:50,y:92}, // GK
+                {x:20,y:80},{x:40,y:82},{x:60,y:82},{x:80,y:80}, // DF
+                {x:30,y:68},{x:50,y:70},{x:70,y:68},{x:50,y:62}, // MF
+                {x:40,y:52},{x:60,y:52}  // FW
+            ]
         };
-        p.logs.unshift(log); save(); openDetail(currentPlayerId);
-        document.getElementById('log-video').value = '';
-        document.getElementById('log-good').value = '';
+        
+        const coords = formations[form];
+        teamA.forEach((p, i) => {
+            if (coords[i]) { p.x = coords[i].x; p.y = coords[i].y; updatePieceDOM(p); }
+        });
+        saveState();
     }
 
-    function renderList() {
-        document.getElementById('player-container').innerHTML = players.map(p => `
-            <div class="card" onclick="openDetail(${p.id})"><strong>${p.name}</strong></div>
-        `).join('');
+    function resetPieces() {
+        const teamA = pieces.filter(p => p.type === 'team-a');
+        const teamB = pieces.filter(p => p.type === 'team-b');
+        const ball = pieces.find(p => p.type === 'ball');
+        
+        // 初期配置 (キックオフ陣形)
+        teamA.forEach((p, i) => { p.x = 10 + (i*8); p.y = 85; updatePieceDOM(p); }); // 下側
+        teamB.forEach((p, i) => { p.x = 10 + (i*8); p.y = 15; updatePieceDOM(p); }); // 上側
+        ball.x = 50; ball.y = 75; updatePieceDOM(ball); // 中央
+        saveState();
     }
 
-    function renderLogs(p) {
-        document.getElementById('log-history').innerHTML = p.logs.map(l => `
-            <div class="card">
-                <small>${l.date}</small>
-                <p>${l.good}</p>
-                ${l.videoId ? `<div class="video-container"><iframe src="https://www.youtube.com/embed/${l.videoId}" frameborder="0" allowfullscreen></iframe></div>` : ''}
-            </div>
-        `).join('');
+    // --- 6. 状態の保存 (LocalStorage) ---
+    function saveState() {
+        const state = pieces.map(p => ({
+            type: p.type, label: p.label, x: p.x, y: p.y, angle: p.el.dataset.angle || 0
+        }));
+        localStorage.setItem('praiseLogTacticsV1', JSON.stringify(state));
     }
 
-    function save() { localStorage.setItem('praiseLogVisualV1', JSON.stringify(players)); }
-    renderList();
+    function loadState() {
+        const saved = JSON.parse(localStorage.getItem('praiseLogTacticsV1'));
+        if (!saved) { initPieces(); return; }
+        
+        saved.forEach(s => {
+            const p = pieces.find(x => x.type === s.type && x.label === s.label);
+            if (p) {
+                p.x = s.x; p.y = s.y; p.el.dataset.angle = s.angle;
+                updatePieceDOM(p);
+                // 矢印を復元
+                const arrow = p.el.querySelector('.direction-arrow');
+                if (arrow) arrow.style.transform = `translateX(-50%) rotate(${s.angle}deg)`;
+            }
+        });
+    }
+
+    // 起動
+    initPieces();
+    // データの保存・読み込みは今回は簡易化のためリセット優先
+    // loadState(); // 以前の状態を読み込みたい場合はここを有効にする
 </script>
 </body>
 </html>
