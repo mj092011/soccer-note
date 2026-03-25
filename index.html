@@ -3,318 +3,212 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PraiseLog Tactics Engine</title>
+    <title>PraiseLog Tactical Pro</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
-            --gradient-start: #2C3E50; --gradient-end: #4CA1AF; /* シリアスな戦術カラー */
-            --bg-body: #F4F7F6; --color-primary: #2C3E50; --color-accent: #E74C3C;
-            --pitch-green: #5AB574; --radius-main: 20px;
+            --gradient-start: #8E44AD; --gradient-end: #3498DB;
+            --bg-body: #FDFDFD; --color-primary: #8E44AD; --color-accent: #3498DB;
+            --pitch-green: #45a049; --radius-main: 25px;
         }
-        body { font-family: sans-serif; background-color: var(--bg-body); margin: 0; padding-bottom: 100px; touch-action: none; overflow: hidden; } /* タッチ操作専用 */
-        header { background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%); color: white; padding: 15px 20px; text-align: center; }
-        h1 { margin: 0; font-size: 1.2rem; }
+        body { font-family: sans-serif; background-color: var(--bg-body); margin: 0; padding-bottom: 80px; touch-action: manipulation; }
+        header { background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%); color: white; padding: 20px; text-align: center; border-bottom-left-radius: var(--radius-main); border-bottom-right-radius: var(--radius-main); }
+        .container { max-width: 800px; margin: 0 auto; padding: 15px; }
+        .card { background: white; border-radius: var(--radius-main); padding: 20px; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
         
-        /* タクティカル・コンソール（ボード部分） */
-        #tactics-console { width: 100vw; height: calc(100vh - 120px); position: relative; overflow: hidden; background: #333; }
-        
-        /* ピッチ（ズーム対応） */
-        #pitch-container {
-            width: 100%; height: 100%; position: absolute; background-color: var(--pitch-green);
-            background-image: repeating-linear-gradient(90deg, transparent, transparent 19%, rgba(255,255,255,0.05) 20%);
-            transition: all 0.5s ease-out; /* ズームアニメーション */
-            transform-origin: center center;
-        }
-        
-        /* ピッチのライン描画 (SVGで精密に) */
-        #pitch-lines { position: absolute; width: 100%; height: 100%; top: 0; left: 0; }
+        /* タクティカルボード */
+        #stage { width: 100%; aspect-ratio: 3/4; position: relative; overflow: hidden; background: #333; border-radius: 15px; margin-bottom: 20px; touch-action: none; }
+        #pitch { width: 100%; height: 100%; position: absolute; background-color: var(--pitch-green); transition: transform 0.4s ease; transform-origin: center; }
+        .line { position: absolute; border: 1.5px solid rgba(255,255,255,0.7); pointer-events: none; }
+        .outer-rect { top: 5%; left: 5%; width: 90%; height: 90%; }
+        .center-line { top: 50%; left: 5%; width: 90%; height: 0; }
+        .penalty-top { top: 5%; left: 25%; width: 50%; height: 12%; border-top: none; }
+        .penalty-bottom { bottom: 5%; left: 25%; width: 50%; height: 12%; border-bottom: none; }
 
-        /* 駒（選手・ボール） */
-        .piece {
-            width: 26px; height: 26px; border-radius: 50%; position: absolute; 
-            display: flex; align-items: center; justify-content: center; color: white; font-size: 9px; font-weight: bold;
-            cursor: grab; z-index: 10; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-            touch-action: none; transform: translate(-50%, -50%);
-        }
-        .piece.team-a { background: #3498DB; } /* 自チーム（青） */
-        .piece.team-b { background: #E74C3C; } /* 相手（赤） */
-        .piece.ball { background: white; border-color: #333; width: 18px; height: 18px; z-index: 20; } /* ボール */
-        
-        /* 体の向き（矢印） */
-        .direction-arrow {
-            position: absolute; width: 0; height: 0; 
-            border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 10px solid gold;
-            top: -12px; left: 50%; transform: translateX(-50%);
-            opacity: 0.8; pointer-events: none;
-        }
+        /* 駒 */
+        .piece { width: 28px; height: 28px; border-radius: 50%; position: absolute; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; font-weight: bold; border: 2px solid white; z-index: 10; transform: translate(-50%, -50%); touch-action: none; }
+        .team-a { background: var(--color-accent); }
+        .team-b { background: #E74C3C; }
+        .ball { width: 18px; height: 18px; background: white; border: 2px solid #333; z-index: 20; color: black; }
+        .arrow { position: absolute; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 9px solid gold; top: -12px; left: 50%; transform: translateX(-50%); pointer-events: none; }
 
-        /* コントロールパネル */
-        #control-panel {
-            position: absolute; bottom: 70px; left: 0; width: 100%; background: rgba(255,255,255,0.95);
-            padding: 10px; box-sizing: border-box; display: flex; flex-wrap: wrap; gap: 5px; justify-content: center;
-            border-top-left-radius: 15px; border-top-right-radius: 15px; box-shadow: 0 -5px 10px rgba(0,0,0,0.1); z-index: 30;
-        }
-        .ctrl-btn { background: white; border: 1px solid #ccc; padding: 8px 12px; border-radius: 20px; font-size: 0.8rem; cursor: pointer; }
-        .ctrl-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-        .group-label { font-size: 0.7rem; color: #777; width: 100%; text-align: center; margin-bottom: 2px; }
-
-        /* 選手一覧などのビュー（今回はボード特化のため非表示） */
-        .view-section { display: none; }
+        /* UI要素 */
+        textarea, input { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid #ddd; margin-bottom: 10px; box-sizing: border-box; }
+        .btn { background: var(--color-primary); color: white; border: none; padding: 15px; border-radius: 30px; width: 100%; font-weight: bold; cursor: pointer; }
+        .hidden { display: none; }
+        nav { position: fixed; bottom: 0; width: 100%; background: white; display: flex; justify-content: space-around; padding: 10px 0; box-shadow: 0 -5px 10px rgba(0,0,0,0.05); z-index: 1000; }
+        .video-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; margin-top: 10px; border-radius: 10px; }
+        .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
     </style>
 </head>
 <body>
 
-<header>
-    <h1>PraiseLogTactics Engine</h1>
-</header>
+<header><h1>PraiseLog All-in-One</h1></header>
 
-<div id="tactics-console">
-    <div id="pitch-container">
-        <svg id="pitch-lines" viewBox="0 0 100 150" preserveAspectRatio="none">
-            <rect x="5" y="5" width="90" height="140" fill="none" stroke="white" stroke-width="0.5"/>
-            <line x1="5" y1="75" x2="95" y2="75" stroke="white" stroke-width="0.5"/>
-            <circle cx="50" cy="75" r="10" fill="none" stroke="white" stroke-width="0.5"/>
-            <rect x="25" y="5" width="50" height="20" fill="none" stroke="white" stroke-width="0.5"/>
-            <rect x="25" y="125" width="50" height="20" fill="none" stroke="white" stroke-width="0.5"/>
-        </svg>
-        
+<div class="container">
+    <section id="view-list">
+        <div id="player-container"></div>
+        <button class="btn" onclick="showView('add-player')">+ 新しい選手を登録</button>
+    </section>
+
+    <section id="view-detail" class="hidden">
+        <button onclick="showView('list')" style="border:none; background:none; color:var(--color-primary); font-weight:bold; padding:10px 0;">← 戻る</button>
+        <div id="detail-header" style="margin-bottom:10px;"></div>
+
+        <div id="stage">
+            <div id="pitch">
+                <div class="line outer-rect"></div><div class="line center-line"></div>
+                <div class="line penalty-top"></div><div class="line penalty-bottom"></div>
+            </div>
         </div>
+        
+        <div style="display:flex; gap:5px; margin-bottom:20px; overflow-x:auto; padding-bottom:5px;">
+            <button class="btn" style="flex:1; font-size:0.7rem;" onclick="zoom('all')">全般</button>
+            <button class="btn" style="flex:1; font-size:0.7rem; background:var(--color-accent);" onclick="zoom('attack')">攻/守</button>
+            <button class="btn" style="flex:1; font-size:0.7rem; background:#444;" onclick="zoom('counter')">中盤</button>
+            <button class="btn" style="flex:1; font-size:0.7rem; background:#777;" onclick="resetBoard()">Reset</button>
+        </div>
+
+        <div class="card" style="border-top:5px solid var(--color-accent);">
+            <h3 style="margin-top:0;">📝 今日の成長記録</h3>
+            <input type="text" id="log-video" placeholder="YouTube URL (あれば)">
+            <textarea id="log-good" rows="3" placeholder="良かったプレー・感覚の言語化"></textarea>
+            <button class="btn" onclick="saveLog()">この内容で保存 ✨</button>
+        </div>
+
+        <div id="log-history"></div>
+    </section>
+
+    <section id="view-add-player" class="hidden">
+        <div class="card">
+            <h3>選手登録</h3>
+            <input type="text" id="new-name" placeholder="名前">
+            <button class="btn" onclick="addPlayer()">登録</button>
+        </div>
+    </section>
 </div>
 
-<div id="control-panel">
-    <div class="group-label">シチュエーション</div>
-    <button class="ctrl-btn active" onclick="setSituation('all', this)">全般</button>
-    <button class="ctrl-btn" onclick="setSituation('attack', this)">攻撃時/守備時</button>
-    <button class="ctrl-btn" onclick="setSituation('counter', this)">カウンター時</button>
-    
-    <div class="group-label" style="margin-top:10px;">フォーメーション (青)</div>
-    <button class="ctrl-btn" onclick="applyFormation('433')">4-3-3</button>
-    <button class="ctrl-btn" onclick="applyFormation('442')">4-4-2</button>
-    <button class="ctrl-btn" onclick="resetPieces()">リセット</button>
-</div>
-
-<nav style="position: fixed; bottom: 0; width: 100%; background: white; display: flex; justify-content: space-around; padding: 15px 0; box-shadow: 0 -5px 10px rgba(0,0,0,0.05);">
-    <button style="border:none; background:none; color:var(--color-primary); font-weight:bold;"><i class="fas fa-chalkboard-teacher"></i><br>戦術ボード</button>
+<nav>
+    <button onclick="showView('list')"><i class="fas fa-users"></i><br>選手一覧</button>
+    <button onclick="location.reload()"><i class="fas fa-sync"></i><br>更新</button>
 </nav>
 
 <script>
-    const pitch = document.getElementById('pitch-container');
-    const pieces = []; // すべての駒のデータを保持
+    let players = JSON.parse(localStorage.getItem('praiseLogFinalV1')) || [];
+    let currentPlayerId = null;
+    let pieces = [];
+    const pitch = document.getElementById('pitch');
 
-    // --- 1. 駒（選手・ボール）の初期化 ---
-    function initPieces() {
-        // 自チーム (青) 11人
-        for (let i = 1; i <= 11; i++) createPiece('team-a', i);
-        // 相手チーム (赤) 11人
-        for (let i = 1; i <= 11; i++) createPiece('team-b', i);
-        // ボール
+    // 1. 駒の初期化
+    function initBoard() {
+        pitch.innerHTML = '<div class="line outer-rect"></div><div class="line center-line"></div><div class="line penalty-top"></div><div class="line penalty-bottom"></div>';
+        pieces = [];
+        for(let i=1; i<=11; i++) createPiece('team-a', i);
+        for(let i=1; i<=11; i++) createPiece('team-b', i);
         createPiece('ball', '⚽');
-        
-        resetPieces(); // 初期位置へ
+        resetBoard();
     }
 
     function createPiece(type, label) {
-        const el = document.createElement('div');
-        el.className = `piece ${type}`;
-        if (type !== 'ball') {
-            el.innerHTML = `<div class="direction-arrow"></div>${label}`;
-            el.dataset.angle = 0; // 体の向き（角度）
-        }
-        
-        pitch.appendChild(el);
-        
-        const pieceData = {
-            el: el, type: type, label: label,
-            x: 0, y: 0, // パーセント位置
-            initX: 0, initY: 0 // ドラッグ開始時の物理位置
-        };
-        pieces.push(pieceData);
-
-        // タッチイベントの登録
-        el.addEventListener('touchstart', dragStart, false);
-        if (type !== 'ball') {
-            el.addEventListener('dblclick', rotatePiece, false); // PC用：ダブルクリックで回転
-            el.addEventListener('touchstart', handlePieceTap, false); // スマホ用：タップで回転
-        }
-    }
-
-    // --- 2. ドラッグ & ドロップ & ボール連動機能 ---
-    document.addEventListener('touchmove', drag, false);
-    document.addEventListener('touchend', dragEnd, false);
-
-    let activePiece = null;
-    let pitchRect;
-
-    function dragStart(e) {
-        activePiece = pieces.find(p => p.el === e.target || p.el === e.target.parentElement);
-        if (!activePiece) return;
-        
-        pitchRect = pitch.getBoundingClientRect();
-        activePiece.initX = e.touches[0].clientX - activePiece.el.offsetLeft;
-        activePiece.initY = e.touches[0].clientY - activePiece.el.offsetTop;
-        activePiece.el.style.zIndex = 100; // ドラッグ中を前面に
-    }
-
-    function drag(e) {
-        if (!activePiece) return;
-        e.preventDefault();
-
-        let x = e.touches[0].clientX - activePiece.initX;
-        let y = e.touches[0].clientY - activePiece.initY;
-
-        // ピッチ内（パーセント）に変換
-        activePiece.x = (x / pitchRect.width) * 100;
-        activePiece.y = (y / pitchRect.height) * 100;
-
-        updatePieceDOM(activePiece);
-
-        // ★ ボール連動機能 ★
-        if (activePiece.type === 'ball') {
-            movePlayersWithBall(activePiece.x, activePiece.y);
-        }
-    }
-
-    function dragEnd() {
-        if (activePiece) {
-            activePiece.el.style.zIndex = activePiece.type === 'ball' ? 20 : 10;
-            saveState(); // 位置を保存
-        }
-        activePiece = null;
-    }
-
-    function updatePieceDOM(piece) {
-        piece.el.style.left = piece.x + "%";
-        piece.el.style.top = piece.y + "%";
-    }
-
-    // ★ ボール連動AI ★
-    function movePlayersWithBall(ballX, ballY) {
-        pieces.forEach(p => {
-            if (p.type === 'ball') return;
-            
-            // 簡略化：ボールからの距離に応じて、少しだけボールに近づく
-            const dx = ballX - p.x;
-            const dy = ballY - p.y;
-            const dist = Math.sqrt(dx*dx + dy*dy);
-            
-            if (dist < 30) { // ボールに近い選手だけ
-                const attraction = 0.05; // 引き寄せ強度（0〜1）
-                p.x += dx * attraction;
-                p.y += dy * attraction;
-                updatePieceDOM(p);
+        const div = document.createElement('div');
+        div.className = `piece ${type}`;
+        div.innerHTML = type === 'ball' ? '⚽' : `<div class="arrow"></div>${label}`;
+        div.dataset.angle = 0;
+        pitch.appendChild(div);
+        const data = { el: div, type: type, x: 50, y: 50, angle: 0 };
+        pieces.push(data);
+        div.addEventListener('touchstart', (e) => {
+            dragging = data;
+            const now = Date.now();
+            if (data.type !== 'ball' && now - (data.lastTap || 0) < 300) {
+                data.angle = (data.angle + 45) % 360;
+                div.querySelector('.arrow').style.transform = `translateX(-50%) rotate(${data.angle}deg)`;
             }
-        });
+            data.lastTap = now;
+        }, {passive: false});
     }
 
-    // --- 3. 体の向き（回転）機能 ---
-    let lastTapTime = 0;
-    function handlePieceTap(e) {
-        const currentTime = new Date().getTime();
-        const tapLength = currentTime - lastTapTime;
-        if (tapLength < 300 && tapLength > 0) {
-            rotatePiece(e); // ダブルタップで回転
-            e.preventDefault();
+    // 2. ドラッグ & 連動
+    let dragging = null;
+    document.addEventListener('touchmove', (e) => {
+        if (!dragging) return;
+        const rect = document.getElementById('stage').getBoundingClientRect();
+        const touch = e.touches[0];
+        dragging.x = ((touch.clientX - rect.left) / rect.width) * 100;
+        dragging.y = ((touch.clientY - rect.top) / rect.height) * 100;
+        dragging.el.style.left = dragging.x + '%';
+        dragging.el.style.top = dragging.y + '%';
+        if (dragging.type === 'ball') {
+            pieces.forEach(p => {
+                if (p.type === 'ball') return;
+                const dx = dragging.x - p.x, dy = dragging.y - p.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < 20) { p.x += dx*0.05; p.y += dy*0.05; p.el.style.left = p.x+'%'; p.el.style.top = p.y+'%'; }
+            });
         }
-        lastTapTime = currentTime;
+    }, {passive: false});
+    document.addEventListener('touchend', () => dragging = null);
+
+    // 3. 基本機能
+    function showView(v) {
+        document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
+        document.getElementById('view-' + v).classList.remove('hidden');
+        if(v === 'list') renderList();
     }
 
-    function rotatePiece(e) {
-        const el = e.target.classList.contains('piece') ? e.target : e.target.parentElement;
-        if (!el.classList.contains('piece') || el.classList.contains('ball')) return;
-        
-        let angle = parseInt(el.dataset.angle) + 45;
-        if (angle >= 360) angle = 0;
-        el.dataset.angle = angle;
-        
-        // 矢印を回転
-        const arrow = el.querySelector('.direction-arrow');
-        if (arrow) arrow.style.transform = `translateX(-50%) rotate(${angle}deg)`;
-        saveState();
+    function addPlayer() {
+        const name = document.getElementById('new-name').value;
+        if(!name) return;
+        players.push({ id: Date.now(), name, logs: [] });
+        save(); showView('list');
     }
 
-    // --- 4. シチュエーション & ズーム機能 ---
-    function setSituation(sit, btnEl) {
-        // ボタンのスタイル切り替え
-        document.querySelectorAll('.ctrl-btn').forEach(b => b.classList.remove('active'));
-        btnEl.classList.add('active');
-        
-        // ピッチのズーム設定 (transform)
-        switch (sit) {
-            case 'all': 
-                pitch.style.transform = "scale(1.0) translate(0, 0)"; break;
-            case 'attack': // ゴール前（上側）
-                pitch.style.transform = "scale(2.2) translate(0, 30%)"; break;
-            case 'counter': // 中央エリア
-                pitch.style.transform = "scale(1.8) translate(0, 0)"; break;
-        }
+    function openDetail(id) {
+        currentPlayerId = id;
+        const p = players.find(x => x.id === id);
+        document.getElementById('detail-header').innerHTML = `<h2>${p.name} 選手の分析</h2>`;
+        initBoard(); renderLogs(p); showView('detail');
     }
 
-    // --- 5. フォーメーション & リセット ---
-    function applyFormation(form) {
-        const teamA = pieces.filter(p => p.type === 'team-a');
-        
-        const formations = {
-            '433': [
-                {x:50,y:92}, // GK
-                {x:20,y:80},{x:40,y:82},{x:60,y:82},{x:80,y:80}, // DF
-                {x:50,y:70},{x:35,y:65},{x:65,y:65}, // MF
-                {x:50,y:52},{x:25,y:55},{x:75,y:55}  // FW
-            ],
-            '442': [
-                {x:50,y:92}, // GK
-                {x:20,y:80},{x:40,y:82},{x:60,y:82},{x:80,y:80}, // DF
-                {x:30,y:68},{x:50,y:70},{x:70,y:68},{x:50,y:62}, // MF
-                {x:40,y:52},{x:60,y:52}  // FW
-            ]
-        };
-        
-        const coords = formations[form];
-        teamA.forEach((p, i) => {
-            if (coords[i]) { p.x = coords[i].x; p.y = coords[i].y; updatePieceDOM(p); }
-        });
-        saveState();
+    function saveLog() {
+        const p = players.find(x => x.id === currentPlayerId);
+        const url = document.getElementById('log-video').value;
+        const vid = url.includes('v=') ? url.split('v=')[1].split('&')[0] : (url.includes('be/') ? url.split('be/')[1] : null);
+        p.logs.unshift({ date: new Date().toLocaleDateString(), good: document.getElementById('log-good').value, vid });
+        save(); openDetail(currentPlayerId);
+        document.getElementById('log-good').value = ''; document.getElementById('log-video').value = '';
     }
 
-    function resetPieces() {
-        const teamA = pieces.filter(p => p.type === 'team-a');
-        const teamB = pieces.filter(p => p.type === 'team-b');
-        const ball = pieces.find(p => p.type === 'ball');
-        
-        // 初期配置 (キックオフ陣形)
-        teamA.forEach((p, i) => { p.x = 10 + (i*8); p.y = 85; updatePieceDOM(p); }); // 下側
-        teamB.forEach((p, i) => { p.x = 10 + (i*8); p.y = 15; updatePieceDOM(p); }); // 上側
-        ball.x = 50; ball.y = 75; updatePieceDOM(ball); // 中央
-        saveState();
+    function renderList() {
+        document.getElementById('player-container').innerHTML = players.map(p => `<div class="card" onclick="openDetail(${p.id})"><strong>${p.name}</strong></div>`).join('');
     }
 
-    // --- 6. 状態の保存 (LocalStorage) ---
-    function saveState() {
-        const state = pieces.map(p => ({
-            type: p.type, label: p.label, x: p.x, y: p.y, angle: p.el.dataset.angle || 0
-        }));
-        localStorage.setItem('praiseLogTacticsV1', JSON.stringify(state));
+    function renderLogs(p) {
+        document.getElementById('log-history').innerHTML = p.logs.map(l => `
+            <div class="card" style="border-left:5px solid var(--color-primary);">
+                <small>${l.date}</small><p>${l.good}</p>
+                ${l.vid ? `<div class="video-container"><iframe src="https://www.youtube.com/embed/${l.vid}" frameborder="0"></iframe></div>` : ''}
+            </div>
+        `).join('');
     }
 
-    function loadState() {
-        const saved = JSON.parse(localStorage.getItem('praiseLogTacticsV1'));
-        if (!saved) { initPieces(); return; }
-        
-        saved.forEach(s => {
-            const p = pieces.find(x => x.type === s.type && x.label === s.label);
-            if (p) {
-                p.x = s.x; p.y = s.y; p.el.dataset.angle = s.angle;
-                updatePieceDOM(p);
-                // 矢印を復元
-                const arrow = p.el.querySelector('.direction-arrow');
-                if (arrow) arrow.style.transform = `translateX(-50%) rotate(${s.angle}deg)`;
-            }
+    function zoom(m) {
+        if(m==='all') pitch.style.transform = 'scale(1) translate(0,0)';
+        if(m==='attack') pitch.style.transform = 'scale(2.2) translate(0, 28%)';
+        if(m==='counter') pitch.style.transform = 'scale(1.7) translate(0,0)';
+    }
+
+    function resetBoard() {
+        pieces.forEach((p, i) => {
+            if(p.type==='team-a'){ p.x=15+((i%6)*14); p.y=i<6?70:85; }
+            else if(p.type==='team-b'){ let idx=i-11; p.x=15+((idx%6)*14); p.y=idx<6?15:30; }
+            else { p.x=50; p.y=50; }
+            p.el.style.left = p.x+'%'; p.el.style.top = p.y+'%';
         });
     }
 
-    // 起動
-    initPieces();
-    // データの保存・読み込みは今回は簡易化のためリセット優先
-    // loadState(); // 以前の状態を読み込みたい場合はここを有効にする
+    function save() { localStorage.setItem('praiseLogFinalV1', JSON.stringify(players)); }
+    renderList();
 </script>
 </body>
 </html>
